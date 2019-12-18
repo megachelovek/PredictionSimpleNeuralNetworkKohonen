@@ -33,23 +33,18 @@ namespace PredictionSimpleNeuralNetwork
             for (var i = 0; i < nn.Patterns.Count; i++)
             {
                 var Winner = nn.FindWinner(nn.Patterns[i]);
-                //int indexColor = nn.LegendaColors..IndexOf(nn.ColorMatrixNn[Winner.Coordinate.X, Winner.Coordinate.Y]);
-                //if (nn.Classes[i] == Winner.GetMaxSimilarClass())
-                //if (nn.Classes[i] == nn.OutputLayer[Winner.Coordinate.X, Winner.Coordinate.Y].ClassAfterLearning)
                 if (nn.LegendaColors.FirstOrDefault(x => x.Value == nn.Classes[i]).Key ==
                     nn.ColorMatrixNn[Winner.Coordinate.X, Winner.Coordinate.Y])
                     success++;
                 else
                     fail++;
-
-                lbVectors.Items.Cast<string>();
-                var itemText = lbVectors.Items[i].ToString();
-                lbVectors.Items.RemoveAt(i);
-                //lbVectors.Items.Insert(i, itemText+$"[{nn.ExistentClasses.Keys[indexColor]}]");
-                lbVectors.Items.Insert(i,
-                    itemText + $"[{nn.LegendaColors[nn.ColorMatrixNn[Winner.Coordinate.X, Winner.Coordinate.Y]]}]");
-                successLabel.Text = $"Успешно={success}/{nn.Patterns.Count}";
             }
+        }
+
+        private void ShowInputVectorsOnChart()
+        {
+            chartData.Series["InputVectors"].Points.Clear();
+            foreach (var pattern in nn.Patterns) chartData.Series["InputVectors"].Points.AddXY(pattern[0].ToString()+pattern[1].ToString(), pattern[5]);
         }
 
         private void buttonStart_Click(object sender, EventArgs e)
