@@ -34,8 +34,10 @@ namespace NeuralNetworkLibrary
         public double CurrentDelta { get; private set; }
         public SortedList<string, int> ExistentClasses { get; private set; }
 
+        private int windowSize { get; set; }
+
         #region DefaultNetworkFunctions
-        public NeuralNetwork(int sqrtOfCountNeurons, int numberOfIterations, double valueSko, Functions f, bool isPerceptron = false)
+        public NeuralNetwork(int sqrtOfCountNeurons, int numberOfIterations, double valueSko, Functions f, int windowSize)
         {
             OutputLayerDimensionInitialize = sqrtOfCountNeurons;
             currentIteration = 1;
@@ -43,7 +45,8 @@ namespace NeuralNetworkLibrary
             function = f;
             valueSKO = valueSko;
             CurrentDelta = 100;
-            this.isPerceptron = isPerceptron;
+            this.isPerceptron = false;
+            this.windowSize = windowSize;
         }
         public NeuralNetwork(int sqrtOfCountNeurons, int numberOfIterations, double valueSko, bool isPerceptron=true)
         {
@@ -124,6 +127,7 @@ namespace NeuralNetworkLibrary
 
         public void StartLearning()
         {
+            numberOfPatterns = this.Patterns.Count;
             var iterations = 0;
             if (numberOfIterations == 0)
                 while (CurrentDelta > valueSKO) //Пока не станет меньше значения
@@ -451,7 +455,7 @@ namespace NeuralNetworkLibrary
             sr = new StreamReader(inputDataFileName);
             line = sr.ReadLine();
 
-            while (line != null)
+            while (line != null && line!="")
             {
                 var startPos = 0;
                 var endPos = 0;
@@ -480,6 +484,8 @@ namespace NeuralNetworkLibrary
                     line = sr.ReadLine();
                 }
             }
+            this.Patterns = NormPredictionReadFile(this.windowSize);
+            InputLayerDimension = this.Patterns[0].Count;
 
             sr.Close();
 
@@ -526,6 +532,97 @@ namespace NeuralNetworkLibrary
         {
             if (EndIterationEvent != null)
                 EndIterationEvent(this, e);
+        }
+
+        #endregion
+
+        #region PredictionFunctions
+        
+        /// <summary>
+        /// Скалярное произведение двух векторов (Одинаковой длины)
+        /// </summary>
+        /// <param name="X"></param>
+        /// <param name="Y"></param>
+        /// <returns></returns>
+        public double ScalarMultiply(List<double> X, List<double> Y)
+        {
+            double result = 0;
+            for (int i = 0; i < X.Count; ++i)
+            {
+                result += X[i] * Y[i];
+            }
+            return result;
+        }
+
+        /// <summary>
+        /// Просто гиперболический тангенс
+        /// </summary>
+        /// <param name="arg"></param>
+        /// <returns></returns>
+        public double HyperbolicTan(double arg)
+        {
+            return Math.Tanh(arg);
+        }
+
+        /// <summary>
+        /// Предсказание следующего значения по предыдущему
+        /// </summary>
+        /// <param name="previousValue"></param>
+        /// <returns></returns>
+        public List<double> PredictionNextValues()
+        {
+            List<double> result = new List<double>();
+            foreach (var inputVector in Patterns)
+            {
+                double sumResult = 0;
+                foreach (var neurons in OutputLayer)
+                {
+                    foreach (var neuron in neurons)
+                    {
+                        sumResult += ScalarMultiply(neuron.Weights, inputVector);
+                    }
+                    
+                }
+                result.Add(HyperbolicTan(sumResult));
+            }
+            
+            return result;
+        }
+
+        public List<double> DontUseTestPrediction(int windowSize, List<double> data)//НЕ ИСПОЛЬЗОВАТЬ
+        {
+            Random rnd = new Random();
+            for (var index = 0; index < 10; index++)
+            {
+                data[index] = data[index + 1];
+            }
+            for (var index = 10; index < data.Count-1; index++)
+            {
+                data[index] *= data[index + 1] * (1 + 0.1 * rnd.Next(1, 110 - windowSize) - 2);
+            }
+
+            return data;
+        }
+
+        public List<List<double>> NormPredictionReadFile(int windowSize)
+        {
+            List<List<double>> newPatterns= new List<List<double>>();
+            int countPatterns = Patterns.Count;
+            for (var index = 0; index < countPatterns; index++)
+            {
+                
+                List<double> newVector = new List<double>(windowSize);
+                for (int i = 0; i < windowSize; i++)
+                {
+                    List<double> currentPreviousVector = Patterns[index];
+                    index++;
+                    newVector.Add(currentPreviousVector[0]);
+                }
+                newPatterns.Add(newVector);
+                countPatterns = countPatterns - (windowSize + 1);
+            }
+
+            return newPatterns;
         }
 
         #endregion

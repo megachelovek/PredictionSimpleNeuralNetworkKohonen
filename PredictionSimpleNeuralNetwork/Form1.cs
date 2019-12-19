@@ -22,8 +22,11 @@ namespace PredictionSimpleNeuralNetwork
             InitializeComponent();
             chartData.Series.Add("InputVectors");
             chartData.Series["InputVectors"].ChartType = SeriesChartType.Point;
-            chartData.ChartAreas[0].AxisX.Enabled = AxisEnabled.Auto;
-            chartData.ChartAreas[0].AxisY.Enabled = AxisEnabled.Auto;
+            chartData.Series["InputVectors"].Color = Color.Blue;
+            chartData.Series.Add("OutputVectors");
+            chartData.Series["OutputVectors"].ChartType = SeriesChartType.Point;
+            chartData.Series["OutputVectors"].Color = Color.Red;
+
         }
 
         private void CheckSuccessPercentage()
@@ -41,22 +44,59 @@ namespace PredictionSimpleNeuralNetwork
             }
         }
 
+        private double ValidateDataForChart(double number)
+        {
+            if (!double.IsNaN(number))
+                if (number < 0.000000000000000001E+10)
+                    return 0.000000000000000001E+10;
+
+            return number;
+        }
+
         private void ShowInputVectorsOnChart()
         {
+            int numberOfValue = 0;
             chartData.Series["InputVectors"].Points.Clear();
-            foreach (var pattern in nn.Patterns) chartData.Series["InputVectors"].Points.AddXY(pattern[0].ToString()+pattern[1].ToString(), pattern[5]);
+            for (var index = 0; index < nn.Patterns.Count; index++)
+            {
+                var pattern = nn.Patterns[index];
+                for (var i = 0; i < pattern.Count; i++)
+                {
+                    chartData.Series["InputVectors"].Points
+                        .AddXY(numberOfValue, ValidateDataForChart(pattern[i]));
+                    numberOfValue++;
+                }
+            }
+
+            chartData.ChartAreas[0].AxisX.Enabled = AxisEnabled.Auto;
+            chartData.ChartAreas[0].AxisY.Enabled = AxisEnabled.Auto;
+            chartData.ChartAreas[0].AxisY.Minimum = chartData.Series["InputVectors"].Points.FindMinByValue().YValues[0];
+            chartData.ChartAreas[0].AxisY.Maximum = chartData.Series["InputVectors"].Points.FindMaxByValue().YValues[0];
+
+        }
+
+        private void AddPredictionValues(int window, List<double> data)
+        {
+            int numberOfValue = window+1;
+            for (var index = 0; index < data.Count; index++)
+            {
+                double elem = data[index];
+                chartData.Series["OutputVectors"].Points
+                    .AddXY(numberOfValue, ValidateDataForChart(elem)*63);
+                numberOfValue = (window+1) *(index+1);
+            }
         }
 
         private void buttonStart_Click(object sender, EventArgs e)
         {
             var numberOfNeurons = (int)Math.Sqrt(int.Parse(countOfNeuron.Text));
-            var window = (int)Math.Sqrt(int.Parse(textBoxWindow.Text));
+            int window = (int)int.Parse(textBoxWindow.Text);
             var f = Functions.Discrete;
 
             var tbEpsilon2 = double.Parse(textBoxEpsilon.Text.Replace('.', ','));
             if (nn == null)
             {
-                nn = new NeuralNetwork(numberOfNeurons, 0, tbEpsilon2, f);
+                nn = new NeuralNetwork(numberOfNeurons, 0, tbEpsilon2,Functions.EuclideanMeasure,window);
                 nn.Normalize = checkBoxNormalize.Checked;
             }
 
@@ -66,9 +106,9 @@ namespace PredictionSimpleNeuralNetwork
                 fileName = ofd.FileName;
                 nn.ReadDataFromFile(ofd.FileName);
                 ShowInputVectorsOnChart();
-                SwitchControls(false);
                 nn.StartLearning();
-                CheckSuccessPercentage();
+                List<double> resultPrediction = nn.PredictionNextValues();
+                AddPredictionValues(window, resultPrediction);
             }
         }
     }
