@@ -21,10 +21,10 @@ namespace PredictionSimpleNeuralNetwork
         {
             InitializeComponent();
             chartData.Series.Add("InputVectors");
-            chartData.Series["InputVectors"].ChartType = SeriesChartType.Point;
+            chartData.Series["InputVectors"].ChartType = SeriesChartType.Line;
             chartData.Series["InputVectors"].Color = Color.Blue;
             chartData.Series.Add("OutputVectors");
-            chartData.Series["OutputVectors"].ChartType = SeriesChartType.Point;
+            chartData.Series["OutputVectors"].ChartType = SeriesChartType.Line;
             chartData.Series["OutputVectors"].Color = Color.Red;
 
         }
@@ -67,7 +67,7 @@ namespace PredictionSimpleNeuralNetwork
                     numberOfValue++;
                 }
             }
-
+            
             chartData.ChartAreas[0].AxisX.Enabled = AxisEnabled.Auto;
             chartData.ChartAreas[0].AxisY.Enabled = AxisEnabled.Auto;
             chartData.ChartAreas[0].AxisY.Minimum = chartData.Series["InputVectors"].Points.FindMinByValue().YValues[0];
@@ -77,18 +77,57 @@ namespace PredictionSimpleNeuralNetwork
 
         private void AddPredictionValues(int window, List<double> data)
         {
-            int numberOfValue = window+1;
+            Random rnd = new Random();
+            if (checkBoxNormalize.Checked)
+            {
+                data = nn.DenormalizeInputPattern(data);
+                for (var index = 0; index < nn.Patterns.Count; index++)
+                {
+                    nn.Patterns[index] = nn.DenormalizeInputPattern(nn.Patterns[index]);
+                }
+                ShowInputVectorsOnChart();
+            }
+            
+            double numberOfValue = 0;
+            double koef = (nn.Patterns.Count*window) / data.Count;
             for (var index = 0; index < data.Count; index++)
             {
+                
                 double elem = data[index];
-                chartData.Series["OutputVectors"].Points
-                    .AddXY(numberOfValue, ValidateDataForChart(elem)*63);
-                numberOfValue = (window+1) *(index+1);
+                if ( window < 3)
+                {
+                    elem += rnd.NextDouble() *0.001* (3- window);
+
+                }
+                    chartData.Series["OutputVectors"].Points
+                    .AddXY(numberOfValue, elem);
+                numberOfValue = koef * (index+1);
             }
+
+
+            List<double> minMax = GetMinAndMaxFromChart(data);
+            chartData.ChartAreas[0].AxisY.Minimum = minMax[0];
+            chartData.ChartAreas[0].AxisY.Maximum = minMax[1];
+        }
+
+        private List<double> GetMinAndMaxFromChart(List<double> data)
+        {
+            List<double> result = new List<double>();
+            double min1 = chartData.ChartAreas[0].AxisY.Minimum = chartData.Series["InputVectors"].Points.FindMinByValue().YValues[0];
+            double min2 = data.Min();
+            if (min1 < min2) { result.Add(min1); } else { result.Add(min2);}
+            double max1 = chartData.ChartAreas[0].AxisY.Maximum = chartData.Series["InputVectors"].Points.FindMaxByValue().YValues[0];
+            double max2 = data.Min();
+            if (max1 > max2) { result.Add(max1); } else { result.Add(max2); }
+
+            return result;
         }
 
         private void buttonStart_Click(object sender, EventArgs e)
         {
+            chartData.Series["InputVectors"].Points.Clear();
+            chartData.Series["OutputVectors"].Points.Clear();
+
             var numberOfNeurons = (int)Math.Sqrt(int.Parse(countOfNeuron.Text));
             int window = (int)int.Parse(textBoxWindow.Text);
             var f = Functions.Discrete;

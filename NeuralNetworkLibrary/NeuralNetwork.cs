@@ -34,6 +34,8 @@ namespace NeuralNetworkLibrary
         public double CurrentDelta { get; private set; }
         public SortedList<string, int> ExistentClasses { get; private set; }
 
+
+        private double normalizationConst { get; set; }
         private int windowSize { get; set; }
 
         #region DefaultNetworkFunctions
@@ -71,15 +73,34 @@ namespace NeuralNetworkLibrary
 
         /// <summary>
         ///     Нормализация, как раз Xj = Xj / (Math.sqrt ( Math.Sum(Xj^2)))
+        /// Денормализация Xj = Xj * (Math.sqrt ( Math.Sum(Xj^2))) = const
         /// </summary>
         /// <param name="pattern"></param>
-        private void NormalizeInputPattern(List<double> pattern)
+        private List<double> NormalizeInputPattern(List<double> pattern)
         {
             double nn = 0;
-            for (var i = 0; i < InputLayerDimension; i++) nn += pattern[i] * pattern[i];
-            nn = Math.Sqrt(nn);
-            for (var i = 0; i < InputLayerDimension; i++) pattern[i] /= nn;
+            for (var i = 0; i < InputLayerDimension; i++) normalizationConst += pattern[i] * pattern[i];
+            normalizationConst = Math.Sqrt(normalizationConst);
+            for (var i = 0; i < InputLayerDimension; i++) pattern[i] /= normalizationConst;
+            return pattern;
         }
+
+        /// <summary>
+        ///     Нормализация, как раз Xj = Xj / (Math.sqrt ( Math.Sum(Xj^2)))
+        /// Денормализация Xj = Xj * (Math.sqrt ( Math.Sum(Xj^2))) = const
+        /// </summary>
+        /// <param name="pattern"></param>
+        public List<double> DenormalizeInputPattern(List<double> pattern)
+        {
+            for (var i = 0; i < pattern.Count; i++)
+            {
+                pattern[i] = pattern[i] * normalizationConst;
+            }
+
+            return pattern;
+        }
+
+
 
         /// <summary>
         ///     1 эпоха = однократная подача всех обучающих примеров
@@ -461,22 +482,16 @@ namespace NeuralNetworkLibrary
                 var endPos = 0;
                 var j = 0;
                 pattern = new List<double>(InputLayerDimension); // Заполняет первый график двумя первыми числами
-                for (var ind = 0; ind < line.Length; ind++)
+                pattern.Add(Convert.ToDouble(line.Substring(0, 10).Replace('.', ',')));
+
+                if (Normalize)
                 {
-                    if (line[ind] == ' ' && j != InputLayerDimension)
-                    {
-                        endPos = ind;
-                        pattern.Add(Convert.ToDouble(line.Substring(startPos, endPos - startPos).Replace('.', ',')));
-                        startPos = ind + 1;
-                        j++;
-                    }
+                    if (Patterns.Count ==2) Patterns[0] = Patterns[1];
 
-                    if (j > InputLayerDimension)
-                        throw new InvalidDataException("Wrong file format. Check input data file, and try again");
+                    pattern = NormalizeInputPattern(pattern);
                 }
-
-                if (Normalize) NormalizeInputPattern(pattern); // (1) Этап нормализация входных параметров
                 Patterns.Add(pattern);
+
                 if (line.LastIndexOf(' ') != -1)
                 {
                     startPos = line.LastIndexOf(' ');
@@ -571,19 +586,12 @@ namespace NeuralNetworkLibrary
         /// <returns></returns>
         public List<double> PredictionNextValues()
         {
+            double sumResult = 0;
             List<double> result = new List<double>();
             foreach (var inputVector in Patterns)
             {
-                double sumResult = 0;
-                foreach (var neurons in OutputLayer)
-                {
-                    foreach (var neuron in neurons)
-                    {
-                        sumResult += ScalarMultiply(neuron.Weights, inputVector);
-                    }
-                    
-                }
-                result.Add(HyperbolicTan(sumResult));
+                    sumResult = TestValueMiddle(inputVector);
+                result.Add(sumResult);
             }
             
             return result;
@@ -623,6 +631,18 @@ namespace NeuralNetworkLibrary
             }
 
             return newPatterns;
+        }
+
+        private double TestValueMiddle(List<double> test)
+        {
+            double result=0;
+            foreach (var value in test)
+            {
+                result += value;
+            }
+
+            result = result / test.Count;
+            return result;
         }
 
         #endregion
