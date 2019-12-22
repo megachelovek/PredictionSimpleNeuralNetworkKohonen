@@ -612,7 +612,7 @@ namespace NeuralNetworkLibrary
             return data;
         }
 
-        public List<List<double>> NormPredictionReadFile(int windowSize)
+        public List<List<double>> OldNormPredictionReadFile(int windowSize)
         {
             List<List<double>> newPatterns= new List<List<double>>();
             int countPatterns = Patterns.Count;
@@ -628,6 +628,23 @@ namespace NeuralNetworkLibrary
                 }
                 newPatterns.Add(newVector);
                 countPatterns = countPatterns - (windowSize + 1);
+            }
+
+            return newPatterns;
+        }
+
+        public List<List<double>> NormPredictionReadFile(int windowSize)
+        {
+            List<List<double>> newPatterns = new List<List<double>>();
+            int countPatterns = Patterns.Count;
+            for (var index = 0; index < countPatterns-windowSize;index++)
+            {
+                List<double> tempNewTempPattern = new List<double>();
+                for (int windowIndex = 0; windowIndex < windowSize; windowIndex++)
+                {
+                    tempNewTempPattern.Add(Patterns[index+windowIndex][0]);
+                }
+                newPatterns.Add(tempNewTempPattern);
             }
 
             return newPatterns;

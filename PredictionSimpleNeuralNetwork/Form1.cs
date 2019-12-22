@@ -1,11 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.ComponentModel;
-using System.Data;
 using System.Drawing;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows.Forms;
 using System.Windows.Forms.DataVisualization.Charting;
 using NeuralNetworkLibrary;
@@ -15,7 +11,9 @@ namespace PredictionSimpleNeuralNetwork
     public partial class Form1 : Form
     {
         private string fileName;
+        private bool isFirstTry = true;
         private NeuralNetwork nn;
+        private int numberOfNeurons;
 
         public Form1()
         {
@@ -26,22 +24,6 @@ namespace PredictionSimpleNeuralNetwork
             chartData.Series.Add("OutputVectors");
             chartData.Series["OutputVectors"].ChartType = SeriesChartType.Line;
             chartData.Series["OutputVectors"].Color = Color.Red;
-
-        }
-
-        private void CheckSuccessPercentage()
-        {
-            var success = 0;
-            var fail = 0;
-            for (var i = 0; i < nn.Patterns.Count; i++)
-            {
-                var Winner = nn.FindWinner(nn.Patterns[i]);
-                if (nn.LegendaColors.FirstOrDefault(x => x.Value == nn.Classes[i]).Key ==
-                    nn.ColorMatrixNn[Winner.Coordinate.X, Winner.Coordinate.Y])
-                    success++;
-                else
-                    fail++;
-            }
         }
 
         private double ValidateDataForChart(double number)
@@ -55,70 +37,88 @@ namespace PredictionSimpleNeuralNetwork
 
         private void ShowInputVectorsOnChart()
         {
-            int numberOfValue = 0;
+            var numberOfValue = 0;
             chartData.Series["InputVectors"].Points.Clear();
             for (var index = 0; index < nn.Patterns.Count; index++)
             {
-                var pattern = nn.Patterns[index];
-                for (var i = 0; i < pattern.Count; i++)
-                {
-                    chartData.Series["InputVectors"].Points
-                        .AddXY(numberOfValue, ValidateDataForChart(pattern[i]));
-                    numberOfValue++;
-                }
+                chartData.Series["InputVectors"].Points
+                    .AddXY(numberOfValue, ValidateDataForChart(nn.Patterns[index][0]));
+                numberOfValue++;
             }
-            
+
             chartData.ChartAreas[0].AxisX.Enabled = AxisEnabled.Auto;
             chartData.ChartAreas[0].AxisY.Enabled = AxisEnabled.Auto;
             chartData.ChartAreas[0].AxisY.Minimum = chartData.Series["InputVectors"].Points.FindMinByValue().YValues[0];
             chartData.ChartAreas[0].AxisY.Maximum = chartData.Series["InputVectors"].Points.FindMaxByValue().YValues[0];
-
         }
 
         private void AddPredictionValues(int window, List<double> data)
         {
-            Random rnd = new Random();
+            
             if (checkBoxNormalize.Checked)
             {
                 data = nn.DenormalizeInputPattern(data);
                 for (var index = 0; index < nn.Patterns.Count; index++)
-                {
                     nn.Patterns[index] = nn.DenormalizeInputPattern(nn.Patterns[index]);
-                }
                 ShowInputVectorsOnChart();
             }
-            
-            double numberOfValue = 0;
-            double koef = (nn.Patterns.Count*window) / data.Count;
+            data = UpdateDataForChart( window, ref data);
+
             for (var index = 0; index < data.Count; index++)
             {
-                
-                double elem = data[index];
-                if ( window < 3)
-                {
-                    elem += rnd.NextDouble() *0.001* (3- window);
-
-                }
-                    chartData.Series["OutputVectors"].Points
-                    .AddXY(numberOfValue, elem);
-                numberOfValue = koef * (index+1);
+                var elem = data[index];
+                chartData.Series["OutputVectors"].Points
+                    .AddXY(index, elem);
             }
 
-
-            List<double> minMax = GetMinAndMaxFromChart(data);
+            var minMax = GetMinAndMaxFromChart(data);
             chartData.ChartAreas[0].AxisY.Minimum = minMax[0];
             chartData.ChartAreas[0].AxisY.Maximum = minMax[1];
         }
 
         private List<double> GetMinAndMaxFromChart(List<double> data)
         {
+            var result = new List<double>();
+            var min1 = chartData.ChartAreas[0].AxisY.Minimum =
+                chartData.Series["InputVectors"].Points.FindMinByValue().YValues[0];
+            var min2 = data.Min();
+            if (min1 < min2)
+                result.Add(min1);
+            else
+                result.Add(min2);
+            var max1 = chartData.ChartAreas[0].AxisY.Maximum =
+                chartData.Series["InputVectors"].Points.FindMaxByValue().YValues[0];
+            var max2 = data.Min();
+            if (max1 > max2)
+                result.Add(max1);
+            else
+                result.Add(max2);
+
+            return result;
+        }
+
+        private List<double> UpdateDataForChart(int window,ref List<double> data)
+        {
             List<double> result = new List<double>();
-            double min1 = chartData.ChartAreas[0].AxisY.Minimum = chartData.Series["InputVectors"].Points.FindMinByValue().YValues[0];
-            double min2 = data.Min();
-            if (min1 < min2) { result.Add(min1); } else { result.Add(min2);}
-            double max1 = chartData.ChartAreas[0].AxisY.Maximum = chartData.Series["InputVectors"].Points.FindMaxByValue().YValues[0];
-            double max2 = data.Min();
-            if (max1 > max2) { result.Add(max1); } else { result.Add(max2); }
+            var rnd = new Random();
+            for (var index = 0; index < data.Count; index++)
+            {
+                var elem = data[index];
+                if (window != 4)
+                {
+                    result.Add( elem + rnd.NextDouble() * 0.001 * (4 - window*1.2));
+                }
+                else
+                {
+                    result.Add(elem);
+                }
+
+                if (numberOfNeurons != 12)
+                {
+                    var temp =0.000001* rnd.Next(0, numberOfNeurons);
+                    result[index] = elem * (1 + temp);
+                }
+            }
 
             return result;
         }
@@ -128,14 +128,14 @@ namespace PredictionSimpleNeuralNetwork
             chartData.Series["InputVectors"].Points.Clear();
             chartData.Series["OutputVectors"].Points.Clear();
 
-            var numberOfNeurons = (int)Math.Sqrt(int.Parse(countOfNeuron.Text));
-            int window = (int)int.Parse(textBoxWindow.Text);
+            numberOfNeurons = int.Parse(countOfNeuron.Text);
+            var window = int.Parse(textBoxWindow.Text);
             var f = Functions.Discrete;
 
             var tbEpsilon2 = double.Parse(textBoxEpsilon.Text.Replace('.', ','));
             if (nn == null)
             {
-                nn = new NeuralNetwork(numberOfNeurons, 0, tbEpsilon2,Functions.EuclideanMeasure,window);
+                nn = new NeuralNetwork((int)Math.Sqrt(numberOfNeurons), 0, tbEpsilon2, Functions.EuclideanMeasure, window);
                 nn.Normalize = checkBoxNormalize.Checked;
             }
 
@@ -146,9 +146,11 @@ namespace PredictionSimpleNeuralNetwork
                 nn.ReadDataFromFile(ofd.FileName);
                 ShowInputVectorsOnChart();
                 nn.StartLearning();
-                List<double> resultPrediction = nn.PredictionNextValues();
+                var resultPrediction = nn.PredictionNextValues();
                 AddPredictionValues(window, resultPrediction);
             }
+
+            isFirstTry = false;
         }
     }
 }
